@@ -1,0 +1,594 @@
+Textus Change Management
+========================
+
+This executable model defines a reusable workflow for turning an observed
+finding into a reviewed, delivery-ready change. It deliberately keeps artifact
+formats and delivery providers outside the generic core.
+
+# COMPONENT
+
+## ChangeManagement
+
+### PACKAGE
+
+org.simplemodeling.textus.changemanagement
+
+### DESCRIPTION
+
+Owns provider-neutral change proposals, their semantic evidence, and the state
+transitions that lead to a delivery-ready candidate.
+
+# SERVICE
+
+## ChangeManagement
+
+### DESCRIPTION
+
+Creates and advances change proposals while preserving source patches,
+candidate artifacts, semantic diffs, and reviews as distinct evidence.
+
+### OPERATION
+
+#### createProposal
+
+##### DESCRIPTION
+
+Creates a detected proposal from a finding and a provider-neutral source artifact.
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+CreateProposal
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### recordGuidance
+
+##### DESCRIPTION
+
+Records actionable guidance for a detected proposal and advances it to Guided.
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+RecordGuidance
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### attachProposedPatch
+
+##### DESCRIPTION
+
+Attaches the proposed byte-level patch as evidence and advances a guided proposal.
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+AttachProposedPatch
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### attachCandidateArtifact
+
+##### DESCRIPTION
+
+Attaches the candidate produced from the patch without assuming its media format.
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+AttachCandidateArtifact
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### attachSemanticDiff
+
+##### DESCRIPTION
+
+Records the semantic comparison between source and candidate as separate evidence.
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+AttachSemanticDiff
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### recordCandidateReview
+
+##### DESCRIPTION
+
+Records an accepted or rejected semantic review after a semantic diff exists.
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+RecordCandidateReview
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### markReadyForDelivery
+
+##### DESCRIPTION
+
+Marks a reviewed proposal ready for a provider-specific delivery operation.
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+MarkReadyForDelivery
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### getProposal
+
+##### DESCRIPTION
+
+Loads one retained change proposal by its public proposal identifier.
+
+##### TYPE
+QUERY
+
+##### INPUT
+###### TYPE
+GetProposal
+
+##### OUTPUT
+###### TYPE
+ChangeProposalResult
+
+#### listProposals
+
+##### DESCRIPTION
+
+Lists retained proposals with an optional lifecycle-state filter and result limit.
+
+##### TYPE
+QUERY
+
+##### INPUT
+###### TYPE
+ListProposals
+
+##### OUTPUT
+###### TYPE
+ChangeProposalListResult
+
+# ENTITY
+
+## ChangeProposal
+
+### DESCRIPTION
+
+Aggregate root for one governed change. `proposedPatch`, `semanticDiff`, and
+`reviewResult` intentionally remain separate: byte changes, meaning changes,
+and acceptance evidence are not interchangeable.
+
+### ATTRIBUTE
+
+| name               | type                | multiplicity |
+|--------------------+---------------------+--------------|
+| id                 | entityid            | 1            |
+| proposalId         | ProposalId          | 1            |
+| subject            | ChangeSubject       | 1            |
+| originatingFinding | FindingStatement    | 1            |
+| guidance           | GuidanceStatement   | ?            |
+| sourceTarget       | ChangeArtifact      | 1            |
+| proposedPatch      | ChangeArtifact      | ?            |
+| candidateArtifact  | ChangeArtifact      | ?            |
+| semanticDiff       | SemanticDiff        | ?            |
+| reviewResult       | CandidateReview     | ?            |
+| readiness          | DeliveryReadiness   | 1            |
+| delivery           | ChangeDelivery      | ?            |
+| verificationResult | VerificationResult  | ?            |
+| state              | ChangeProposalState | 1            |
+| revision           | int                 | 1            |
+
+### STATEMACHINE
+
+#### proposalLifecycle
+
+##### STATE
+
+###### Detected
+####### TRANSITION
+- on :: recordGuidance
+- to :: Guided
+
+###### Guided
+####### TRANSITION
+- on :: attachProposedPatch
+- to :: Proposed
+
+###### Proposed
+####### TRANSITION
+- on :: attachCandidateArtifact
+- to :: CandidateBuilt
+
+###### CandidateBuilt
+####### TRANSITION
+- on :: attachSemanticDiff
+- to :: CandidateBuilt
+####### TRANSITION
+- on :: recordCandidateReview
+- to :: Reviewed
+####### TRANSITION
+- on :: failBuild
+- to :: BuildFailed
+
+###### Reviewed
+####### TRANSITION
+- on :: markReadyForDelivery
+- to :: ReadyForDelivery
+####### TRANSITION
+- on :: rejectCandidate
+- to :: Rejected
+####### TRANSITION
+- on :: failReview
+- to :: ReviewFailed
+
+###### ReadyForDelivery
+####### TRANSITION
+- on :: recordDelivery
+- to :: Delivered
+
+###### Delivered
+####### TRANSITION
+- on :: recordMerge
+- to :: Merged
+####### TRANSITION
+- on :: failDelivery
+- to :: DeliveryFailed
+
+###### Merged
+####### TRANSITION
+- on :: verifyChange
+- to :: Verified
+####### TRANSITION
+- on :: failVerification
+- to :: VerificationFailed
+
+###### Verified
+###### Rejected
+###### BuildFailed
+###### ReviewFailed
+###### DeliveryFailed
+###### ClosedWithoutMerge
+###### VerificationFailed
+
+##### EVENT
+
+###### recordGuidance
+###### attachProposedPatch
+###### attachCandidateArtifact
+###### attachSemanticDiff
+###### recordCandidateReview
+###### markReadyForDelivery
+###### recordDelivery
+###### recordMerge
+###### verifyChange
+###### rejectCandidate
+###### failBuild
+###### failReview
+###### failDelivery
+###### failVerification
+
+# POWERTYPE
+
+## ChangeProposalState
+
+package = org.simplemodeling.textus.changemanagement.value
+
+| name               | label                |
+| ------------------ | -------------------- |
+| Detected           | Detected             |
+| Guided             | Guided               |
+| Proposed           | Proposed             |
+| CandidateBuilt     | Candidate built      |
+| Reviewed           | Reviewed             |
+| ReadyForDelivery   | Ready for delivery   |
+| Delivered          | Delivered            |
+| Merged             | Merged               |
+| Verified           | Verified             |
+| Rejected           | Rejected             |
+| BuildFailed        | Build failed         |
+| ReviewFailed       | Review failed        |
+| DeliveryFailed     | Delivery failed      |
+| ClosedWithoutMerge | Closed without merge |
+| VerificationFailed | Verification failed  |
+
+## ChangeArtifactKind
+
+package = org.simplemodeling.textus.changemanagement.value
+
+| name      | label     |
+| --------- | --------- |
+| Source    | Source    |
+| Patch     | Patch     |
+| Candidate | Candidate |
+| Evidence  | Evidence  |
+
+## ReviewDecision
+
+package = org.simplemodeling.textus.changemanagement.value
+
+| name     | label    |
+| -------- | -------- |
+| Accepted | Accepted |
+| Rejected | Rejected |
+
+## DeliveryReadiness
+
+package = org.simplemodeling.textus.changemanagement.value
+
+| name     | label     |
+| -------- | --------- |
+| NotReady | Not ready |
+| Ready    | Ready     |
+
+## DeliveryStatus
+
+package = org.simplemodeling.textus.changemanagement.value
+
+| name      | label     |
+| --------- | --------- |
+| Prepared  | Prepared  |
+| Submitted | Submitted |
+| Merged    | Merged    |
+| Failed    | Failed    |
+
+## VerificationStatus
+
+package = org.simplemodeling.textus.changemanagement.value
+
+| name      | label     |
+| --------- | --------- |
+| Pending   | Pending   |
+| Succeeded | Succeeded |
+| Failed    | Failed    |
+
+# VALUE
+
+## ChangeArtifact
+
+### ATTRIBUTE
+
+| name      | type               | multiplicity |
+|-----------+--------------------+--------------|
+| kind      | ChangeArtifactKind | 1            |
+| reference | ArtifactReference  | 1            |
+| mediaType | MediaType          | ?            |
+| digest    | ArtifactDigest     | ?            |
+
+## SemanticDiff
+
+### ATTRIBUTE
+
+| name             | type              | multiplicity |
+|------------------+-------------------+--------------|
+| summary          | SemanticDiffStatement | 1            |
+| payloadReference | ArtifactReference | ?            |
+
+## CandidateReview
+
+### ATTRIBUTE
+
+| name              | type              | multiplicity |
+|-------------------+-------------------+--------------|
+| decision          | ReviewDecision    | 1            |
+| summary           | ReviewStatement    | 1            |
+| evidenceReference | ArtifactReference | ?            |
+
+## ChangeDelivery
+
+### ATTRIBUTE
+
+| name       | type               | multiplicity |
+|------------+--------------------+--------------|
+| provider   | DeliveryProvider   | 1            |
+| externalId | DeliveryExternalId | ?            |
+| uri        | DeliveryLocation   | ?            |
+| status     | DeliveryStatus     | 1            |
+
+## VerificationResult
+
+### ATTRIBUTE
+
+| name              | type                | multiplicity |
+|-------------------+---------------------+--------------|
+| status            | VerificationStatus  | 1            |
+| summary           | VerificationStatement | 1            |
+| evidenceReference | ArtifactReference   | ?            |
+
+## CreateProposal
+- input-kind :: COMMAND
+### ATTRIBUTE
+| name               | type           | multiplicity |
+|--------------------+----------------+--------------|
+| proposalId         | ProposalId     | 1            |
+| subject            | ChangeSubject  | 1            |
+| originatingFinding | FindingStatement | 1            |
+| sourceTarget       | ChangeArtifact | 1            |
+
+## RecordGuidance
+- input-kind :: COMMAND
+### ATTRIBUTE
+| name       | type            | multiplicity |
+|------------+-----------------+--------------|
+| proposalId | ProposalId      | 1            |
+| guidance   | GuidanceStatement | 1            |
+
+## AttachProposedPatch
+- input-kind :: COMMAND
+### ATTRIBUTE
+| name          | type           | multiplicity |
+|---------------+----------------+--------------|
+| proposalId    | ProposalId     | 1            |
+| proposedPatch | ChangeArtifact | 1            |
+
+## AttachCandidateArtifact
+- input-kind :: COMMAND
+### ATTRIBUTE
+| name              | type           | multiplicity |
+|-------------------+----------------+--------------|
+| proposalId        | ProposalId     | 1            |
+| candidateArtifact | ChangeArtifact | 1            |
+
+## AttachSemanticDiff
+- input-kind :: COMMAND
+### ATTRIBUTE
+| name         | type         | multiplicity |
+|--------------+--------------+--------------|
+| proposalId   | ProposalId   | 1            |
+| semanticDiff | SemanticDiff | 1            |
+
+## RecordCandidateReview
+- input-kind :: COMMAND
+### ATTRIBUTE
+| name         | type            | multiplicity |
+|--------------+-----------------+--------------|
+| proposalId   | ProposalId      | 1            |
+| reviewResult | CandidateReview | 1            |
+
+## MarkReadyForDelivery
+- input-kind :: COMMAND
+### ATTRIBUTE
+| name       | type       | multiplicity |
+|------------+------------+--------------|
+| proposalId | ProposalId | 1            |
+
+## GetProposal
+- input-kind :: QUERY
+### ATTRIBUTE
+| name       | type       | multiplicity |
+|------------+------------+--------------|
+| proposalId | ProposalId | 1            |
+
+## ListProposals
+- input-kind :: QUERY
+### ATTRIBUTE
+| name   | type                | multiplicity |
+|--------+---------------------+--------------|
+| state  | ChangeProposalState | ?            |
+| offset | int                 | ?            |
+| limit  | int                 | ?            |
+
+## ChangeProposalResult
+### ATTRIBUTE
+| name | type           | multiplicity |
+|------+----------------+--------------|
+| item | ChangeProposal | 1            |
+
+## ChangeProposalListResult
+### ATTRIBUTE
+| name  | type           | multiplicity |
+|-------+----------------+--------------|
+| items | ChangeProposal | *            |
+
+# DATATYPE
+
+## ProposalId
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## ChangeSubject
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## FindingStatement
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## GuidanceStatement
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## ArtifactReference
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## MediaType
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## ArtifactDigest
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## SemanticDiffStatement
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## ReviewStatement
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## DeliveryProvider
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## DeliveryExternalId
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## DeliveryLocation
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |
+
+## VerificationStatement
+### ATTRIBUTE
+| name  | type   | multiplicity |
+|-------+--------+--------------|
+| value | string | 1            |

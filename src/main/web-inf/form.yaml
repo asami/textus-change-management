@@ -1,0 +1,18 @@
+expose:
+  textus-change-management.change-management.create-proposal: protected
+  textus-change-management.change-management.get-proposal: public
+form:
+  textus-change-management.change-management.create-proposal:
+    enabled: true
+    successRedirect: /web/${component}/admin/entities/change-proposal/${result.id}
+    stayOnError: true
+    controls:
+      description:
+        type: textarea
+  textus-change-management.change-management.get-proposal:
+    enabled: true
+    successRedirect: /web/${component}/admin/entities/change-proposal
+    stayOnError: true
+admin:
+  entity.change-proposal:
+    totalCount: optional

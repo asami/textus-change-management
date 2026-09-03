@@ -1,0 +1,6 @@
+apps:
+  - name: textus-change-management
+    path: /web/textus-change-management
+    kind: static-form
+    root: /web/textus-change-management
+    route: /web/{component}/textus-change-management

@@ -1,0 +1,47 @@
+project:
+  namespace: "org.simplemodeling.textus"
+  id: "ChangeManagement"
+  name: "textus-change-management"
+  title: "Textus Change Management"
+  kind: car
+  scalaPackage: "org.simplemodeling.textus.changemanagement"
+  component:
+    name: "ChangeManagement"
+    className: "ChangeManagementComponent"
+    displayName: "Textus Change Management"
+    version: "0.1.0-SNAPSHOT"
+
+build:
+  scalaVersion: "3.3.8"
+  cozyVersion: "0.3.3-SNAPSHOT"
+  dependencies:
+    compile:
+      - "org.goldenport::goldenport-cncf:0.5.3-SNAPSHOT"
+    test:
+      - "org.scalatest::scalatest:3.2.19"
+
+publication:
+  source_manifest:
+    enabled: false
+
+packaging:
+  kind: car
+  car:
+    abi:
+      dependencies: []
+    manifest_metadata:
+      boundedContext: "change-management"
+      domain: "change-management"
+    runtime:
+      cncf:
+        minimum: "0.5.3-SNAPSHOT"
+        excluded: []
+        tested:
+          - "0.5.3-SNAPSHOT"
+
+warehouse:
+  repository_artifacts:
+    include:
+      - car
+    modules:
+      - "textus-change-management"
